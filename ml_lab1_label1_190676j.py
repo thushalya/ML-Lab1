@@ -24,6 +24,9 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.model_selection import cross_val_score
+
 
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 
@@ -202,6 +205,25 @@ plt.ylabel('Count')
 plt.title('Distribution of Label 1 in Training Data')
 plt.show()
 
+"""Calculate the variance between values in each feature remove unwanted features"""
+
+# Assuming you have loaded your dataset into train_features
+# Calculate the variance for each feature
+variances = train_features.var()
+
+# Set a threshold for minimum variance (you can adjust this threshold)
+min_variance_threshold = 0.01
+
+# Create a mask of features that meet the variance threshold
+mask = variances >= min_variance_threshold
+
+# Invert the mask to select features to remove
+features_to_remove = train_features.columns[~mask]
+
+# Remove the selected features from train_features
+train_features = train_features.drop(columns=features_to_remove)
+
+
 """Calculate the correlation matrix of the training data features"""
 
 # Compute the correlation matrix among the features
@@ -348,41 +370,31 @@ classification_models = [
 num_features = pca_train_result.shape[1]
 print(f"Number of features: {num_features}\n")
 
-# Train and evaluate each classification model
+# Assuming you have loaded your data into pca_train_result, train_label1,
+# pca_valid_result, valid_label1, pca_test_result, and test_label1
+
+# Concatenate pca_train_result and pca_valid_result
+combined_train_data = np.concatenate((pca_train_result, pca_valid_result), axis=0)
+combined_labels = np.concatenate((train_label1, valid_label1), axis=0)
+
+# Define a function to calculate classification metrics
+def calculate_classification_metrics(model, X, y):
+    accuracy = cross_val_score(model, X, y, cv=5, scoring='accuracy').mean()
+    precision = cross_val_score(model, X, y, cv=5, scoring='precision_weighted').mean()
+    recall = cross_val_score(model, X, y, cv=5, scoring='recall_weighted').mean()
+    return accuracy, precision, recall
+
+# Loop through each classification model
 for model_name, model in classification_models:
-    # Train the model on the training data
-    model.fit(pca_train_result, train_label1)
-
-    # Predict on the training data
-    y_pred_train = model.predict(pca_train_result)
-
-    # Calculate classification metrics for the training data
-    accuracy = accuracy_score(train_label1, y_pred_train)
-    precision = precision_score(train_label1, y_pred_train, average='weighted', zero_division=1)
-    recall = recall_score(train_label1, y_pred_train, average='weighted')
-
-    print(f"Classification Metrics for {model_name} on training data:")
-    print(f"Accuracy: {accuracy:.2f}")
-    print(f"Precision: {precision:.2f}")
-    print(f"Recall: {recall:.2f}")
+    print(f"Evaluating {model_name} using cross-validation:")
+    
+    # Calculate classification metrics using cross-validation
+    accuracy, precision, recall = calculate_classification_metrics(model, combined_train_data, combined_labels)
+    
+    print(f"Mean Accuracy: {accuracy:.2f}")
+    print(f"Mean Precision: {precision:.2f}")
+    print(f"Mean Recall: {recall:.2f}")
     print("\n")
-
-    # Predict on the validation data
-    y_pred_valid = model.predict(pca_valid_result)
-
-    # Calculate classification metrics for the validation data
-    accuracy = accuracy_score(valid_label1, y_pred_valid)
-    precision = precision_score(valid_label1, y_pred_valid, average='weighted', zero_division=1)
-    recall = recall_score(valid_label1, y_pred_valid, average='weighted')
-
-    print(f"Classification Metrics for {model_name} on validation data:")
-    print(f"Accuracy: {accuracy:.2f}")
-    print(f"Precision: {precision:.2f}")
-    print(f"Recall: {recall:.2f}")
-    print("\n")
-
-    # Predict on the test data
-    y_pred_test = model.predict(pca_test_result)
 
 """# Generate Output CSV
 
